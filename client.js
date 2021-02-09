@@ -204,7 +204,7 @@ $(function () {
       $(this).removeClass('far').addClass('fas');
       checked = true;
     }
-    // AJAX to update database
+    // AJAX to update database if authorized
     $.ajax({
       headers: { "Content-Type": "application/json", "Authorization": 'Bearer ' + Cookies.get('token')},
       url: "https://modasclient-tlg.azurewebsites.net/api/event/" + $(this).data('id'),
