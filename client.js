@@ -251,9 +251,20 @@ $(function () {
       clearInterval(refreshInterval);
     }
   });
+
+  // enter key listener
+  $('#signInModal').on('keypress',function(e) {
+    if(e.which == 13) {
+        $('#submitButton').click();
+        return false;
+    }
+  });
   
   $('#submitButton').on('click', function(e){
     e.preventDefault();
+
+        $('#unError').hide();
+        $('#pwError').hide();
 
         // reset any fields marked with errors
         $('.form-control').removeClass('is-invalid');
@@ -262,10 +273,14 @@ $(function () {
         // check for empty username
         if ($('#username').val().length == 0){
           errors.push($('#username'));
+          $('#unError').show();
+          $('#unError').html("No username entered.");
         }
         // check for empty password
         if ($('#password').val().length == 0){
           errors.push($('#password'));
+          $('#pwError').show();
+          $('#pwError').html("No password entered.");
         }
         // username and/or password empty, display errors
         if (errors.length > 0){
