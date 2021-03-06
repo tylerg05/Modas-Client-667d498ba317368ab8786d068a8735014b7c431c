@@ -8,7 +8,7 @@ $(function () {
   function verifyToken() {
     // check for existing token
     var token = Cookies.get('token');
-    if (token){
+    if (token) {
       // user has token
       getEvents(1);
       // hide sign in link, show sign out link
@@ -19,7 +19,7 @@ $(function () {
       $('#signIn').show();
       $('#signOut').hide();
       // enable auto-refresh button
-      $("#auto-refresh").prop( "disabled", false );
+      $("#auto-refresh").prop("disabled", false);
       // initialize auto-refresh
       initAutoRefresh()
       // display modal
@@ -41,7 +41,7 @@ $(function () {
       error: function (jqXHR, textStatus, errorThrown) {
         // log the error to the console
         // check for 401 - Unauthorized
-        if (jqXHR.status == 401){
+        if (jqXHR.status == 401) {
           $('#signOut a').click();
         }
       }
@@ -52,11 +52,14 @@ $(function () {
     $.getJSON({
       url: "https://modasclient-tlg.azurewebsites.net/api/event/count",
       success: function (response, textStatus, jqXhr) {
-        if (response != $('#total').html()) {
+        if (response > $('#total').html()) {
           // Toast
           toast("Motion Detected", "New motion alert detected!", "fas fa-user-secret");
           // play sound effect
           snd.play();
+          getEvents($('#current').data('val'));
+        }
+        else if (response < $('#total').html()) {
           getEvents($('#current').data('val'));
         }
       },
@@ -81,6 +84,9 @@ $(function () {
       html += "</td>";
       html += "<td>" + get_time(e[i].stamp) + "</td>";
       html += "<td>" + e[i].loc + "</td>";
+      html += "<td>";
+      html += "<i data-id=\"" + e[i].id + "\" class=\"fas fa-trash delete\"></i>";
+      html += "</td>";
       html += "</tr> ";
     }
     $('tbody').html(html);
@@ -104,7 +110,7 @@ $(function () {
     $('#last, #next').prop('disabled', $('#end').html() == $('#total').html());
   }
 
-  function get_long_date(str){
+  function get_long_date(str) {
     var month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     var dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     var full_date = str.split("T")[0];
@@ -115,21 +121,21 @@ $(function () {
 
     return dow[d.getDay()] + ", " + month_names[d.getMonth()] + " " + date + ", " + year;
   }
-  function get_short_date(str){
-      return str.split("T")[0];
+  function get_short_date(str) {
+    return str.split("T")[0];
   }
-  function get_time(str){
-      var time = str.split("T")[1];
-      var hours = Number(time.split(":")[0]);
-      var am_pm = hours >= 12 ? " PM" : " AM";
-      hours = hours > 12 ? hours - 12 : hours;
-      hours == 0 ? hours = "12" : hours;
-      hours = hours < 10 ? "0" + hours : hours + "";
-      var minutes = time.split(":")[1];
-      return hours + ":" + minutes + am_pm;
-  } 
+  function get_time(str) {
+    var time = str.split("T")[1];
+    var hours = Number(time.split(":")[0]);
+    var am_pm = hours >= 12 ? " PM" : " AM";
+    hours = hours > 12 ? hours - 12 : hours;
+    hours == 0 ? hours = "12" : hours;
+    hours = hours < 10 ? "0" + hours : hours + "";
+    var minutes = time.split(":")[1];
+    return hours + ":" + minutes + am_pm;
+  }
 
-  function toast(header, text, icon){
+  function toast(header, text, icon) {
     // create unique id for toast using array length
     var id = toasts.length;
     // generate html for toast
@@ -153,7 +159,7 @@ $(function () {
     });
   }
 
-  function initAutoRefresh(){
+  function initAutoRefresh() {
     // if auto-refresh button is set to true
     if ($('#auto-refresh').data('val')) {
       // display checked icon
@@ -169,15 +175,15 @@ $(function () {
       $('#auto-refresh i').removeClass('fa-check-square').addClass('fa-square');
       // if the timer is on, clear it
       if (refreshInterval) {
-          clearInterval(refreshInterval);
+        clearInterval(refreshInterval);
       }
     }
-}
+  }
 
-  function showErrors(errors){
-    for (var i = 0; i < errors.length; i++){
-        // apply bootstrap is-invalid class to any field with errors
-        errors[i].addClass('is-invalid');;
+  function showErrors(errors) {
+    for (var i = 0; i < errors.length; i++) {
+      // apply bootstrap is-invalid class to any field with errors
+      errors[i].addClass('is-invalid');;
     }
     // shake modal for effect
     $('#signInModal').css('animation-duration', '0.7s')
@@ -204,9 +210,10 @@ $(function () {
       $(this).removeClass('far').addClass('fas');
       checked = true;
     }
+    console.log($(this));
     // AJAX to update database if authorized
     $.ajax({
-      headers: { "Content-Type": "application/json", "Authorization": 'Bearer ' + Cookies.get('token')},
+      headers: { "Content-Type": "application/json", "Authorization": 'Bearer ' + Cookies.get('token') },
       url: "https://modasclient-tlg.azurewebsites.net/api/event/" + $(this).data('id'),
       type: 'patch',
       data: JSON.stringify([{ "op": "replace", "path": "Flagged", "value": checked }]),
@@ -227,13 +234,39 @@ $(function () {
     initAutoRefresh();
   });
 
-  $('#signIn a').on('click', function(e){
+  $('#signIn a').on('click', function (e) {
     e.preventDefault();
     // display modal
     $('#signInModal').modal();
   });
 
-  $('#signOut a').on('click', function(e){
+  $('tbody').on('click', '.delete', function (e) {
+    e.preventDefault();
+    $("body").children().first().before($("#deleteModal"));
+    $('#deleteModal').modal();
+    var par = $(this).data('id');
+    //console.log($(this).data('id'));
+    $('#confirmDelete').on('click', function () {
+      // AJAX to update database if authorized
+      $.ajax({
+        headers: { "Content-Type": "application/json", "Authorization": 'Bearer ' + Cookies.get('token') },
+        url: "https://modasclient-tlg.azurewebsites.net/api/event/" + par,
+        type: 'delete',
+        success: function () {
+          // Toast
+          toast("Update Complete", "Event deleted.", "far fa-edit");
+          $('#deleteModal').modal('hide');
+          refreshEvents();
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          // log the error to the console
+          console.log("The following error occured: " + jqXHR.status, errorThrown);
+        }
+      });
+    })
+  });
+
+  $('#signOut a').on('click', function (e) {
     e.preventDefault();
     // delete cookie
     Cookies.remove('token');
@@ -245,68 +278,91 @@ $(function () {
     $('#signIn').show();
     $('#signOut').hide();
     // disable auto-refresh button
-    $("#auto-refresh").prop( "disabled", true );
+    $("#auto-refresh").prop("disabled", true);
     // if timer is running, clear it
-    if (refreshInterval){
+    if (refreshInterval) {
       clearInterval(refreshInterval);
     }
   });
 
-  // enter key listener
-  $('#signInModal').on('keypress',function(e) {
-    if(e.which == 13) {
-        $('#submitButton').click();
-        return false;
+  // enter key listener for sign in modal
+  $('#signInModal').on('keypress', function (e) {
+    if (e.key == 13) {
+      $('#submitButton').click();
+      return false;
     }
   });
-  
-  $('#submitButton').on('click', function(e){
+
+  // enter key listener for delete modal
+  $('#deleteModal').on('keypress', function (e) {
+    if (e.key === 13) {
+      $('#confirmDelete').click();
+      return false;
+    }
+  });
+
+  // escape key listener for delete modal
+  $('#deleteModal').on('keypress', function (e) {
+    if (e.key === "Escape") {
+      $('#closeDelete').click();
+      $('#deleteModal').modal('hide');
+      return false;
+    }
+  });
+
+  $('#confirmDelete').on('click', function (e) {
     e.preventDefault();
 
-        $('#unError').hide();
-        $('#pwError').hide();
 
-        // reset any fields marked with errors
-        $('.form-control').removeClass('is-invalid');
-        // create an empty errors array
-        var errors = [];
-        // check for empty username
-        if ($('#username').val().length == 0){
-          errors.push($('#username'));
-          $('#unError').show();
-          $('#unError').html("No username entered.");
+  });
+
+  $('#submitButton').on('click', function (e) {
+    e.preventDefault();
+
+    $('#unError').hide();
+    $('#pwError').hide();
+
+    // reset any fields marked with errors
+    $('.form-control').removeClass('is-invalid');
+    // create an empty errors array
+    var errors = [];
+    // check for empty username
+    if ($('#username').val().length == 0) {
+      errors.push($('#username'));
+      $('#unError').show();
+      $('#unError').html("No username entered.");
+    }
+    // check for empty password
+    if ($('#password').val().length == 0) {
+      errors.push($('#password'));
+      $('#pwError').show();
+      $('#pwError').html("No password entered.");
+    }
+    // username and/or password empty, display errors
+    if (errors.length > 0) {
+      showErrors(errors);
+    } else {
+      // verify username and password using the token api
+      $.ajax({
+        headers: { 'Content-Type': 'application/json' },
+        url: "https://modasclient-tlg.azurewebsites.net/api/token",
+        type: 'post',
+        data: JSON.stringify({ "username": $('#username').val(), "password": $('#password').val() }),
+        success: function (data) {
+          // save token in a cookie
+          Cookies.set('token', data["token"], { expires: 7 });
+          // hide modal
+          $('#signInModal').modal('hide');
+          verifyToken();
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          // log the error to the console
+          // check for 401 - Unauthorized
+          if (jqXHR.status == 401) {
+            console.log("token expired");
+          }
         }
-        // check for empty password
-        if ($('#password').val().length == 0){
-          errors.push($('#password'));
-          $('#pwError').show();
-          $('#pwError').html("No password entered.");
-        }
-        // username and/or password empty, display errors
-        if (errors.length > 0){
-          showErrors(errors);
-        } else {
-          // verify username and password using the token api
-          $.ajax({
-            headers: { 'Content-Type': 'application/json' },
-            url: "https://modasclient-tlg.azurewebsites.net/api/token",
-            type: 'post',
-            data: JSON.stringify({ "username": $('#username').val(), "password": $('#password').val() }),
-            success: function (data) {
-              // save token in a cookie
-              Cookies.set('token', data["token"], { expires: 7 });
-              // hide modal
-              $('#signInModal').modal('hide');
-              verifyToken();
-            },
-            error: function (jqXHR, textStatus, errorThrown) {
-              // log the error to the console
-              // check for 401 - Unauthorized
-              if (jqXHR.status == 401){
-                console.log("token expired");
-              }
-            }
-          });
-        }
+      });
+    }
   });
 });
